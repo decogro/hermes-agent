@@ -28,3 +28,20 @@ When a skill says "publish to the issue tracker," create a GitHub issue.
 When a skill says "fetch the relevant ticket," run:
 
 `gh issue view <number> --comments`
+
+## Wayfinding operations
+
+Used by `/wayfinder`. The map is a single issue with child issues as decision
+tickets.
+
+- **Map**: create one issue labelled `wayfinder:map`.
+- **Child ticket**: create an issue labelled `wayfinder:research`,
+  `wayfinder:prototype`, `wayfinder:grilling`, or `wayfinder:task`, then link it
+  to the map through GitHub's sub-issues endpoint. If sub-issues are unavailable,
+  put `Part of #<map>` in the ticket and list it as a task in the map.
+- **Blocking**: use GitHub's native issue-dependency endpoint. If native
+  dependencies are unavailable, put `Blocked by: #<ticket>` in the body.
+- **Frontier**: open, unassigned child tickets with no open blockers.
+- **Claim**: `gh issue edit <number> --add-assignee @me` before working it.
+- **Resolve**: post the decision as a comment, close the ticket, then add a
+  one-line linked gist to the map's Decisions-so-far section.

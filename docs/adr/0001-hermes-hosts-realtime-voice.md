@@ -19,6 +19,12 @@ auto-speak, or voice-conversation loop. Those primitives are turn-based and
 cannot keep a native speech session available while durable Hermes Work runs.
 The desktop client for this module is only a PCM microphone/playback transport.
 
+The realtime path is additional infrastructure inside the Hermes harness. It
+does not replace Hermes's general JSON-RPC gateway, existing session and tool
+runtime, or Legacy Hermes Voice. The general gateway and legacy audio endpoints
+remain available while realtime voice uses a separate authenticated connection
+and client protocol.
+
 The Realtime Provider receives only the Frontstage Tool Set: read-only memory,
 `spawn_work`, `get_work_status`, `cancel_work`, and
 `respond_to_work_permission`. Those operations map to existing Hermes profile
@@ -53,6 +59,8 @@ Coordinator.
 ## Consequences
 
 - Qwen-specific protocol behavior stays inside a replaceable provider adapter.
+- The realtime module is an additional Hermes path; the general gateway and
+  Legacy Hermes Voice remain separate and unchanged.
 - Copied Qwen source retains required Apache-2.0 attribution and change notices.
 - Hermes Kanban and sessions remain authoritative even when voice disconnects.
 - Realtime providers must support streaming speech, tool calls, interruption,

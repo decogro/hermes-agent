@@ -28,8 +28,10 @@ session recovery policy.
 _Avoid_: Qwen when referring to the provider-neutral role
 
 **Voice Gateway**:
-The provider-neutral Hermes authority for Voice Conversation state, transcript,
-context compaction, Realtime Provider lifecycle and recovery, Audio Ownership,
+The additional provider-neutral realtime path inside Hermes. It coexists with,
+and does not replace, the general Hermes gateway or Legacy Hermes Voice. It is
+the Hermes authority for Voice Conversation state, transcript, context
+compaction, Realtime Provider lifecycle and recovery, Audio Ownership,
 Frontstage Tool execution, Work routing, and Announcements. Provider-native
 session state may optimize a live connection but is never authoritative.
 _Avoid_: TaskManager, orchestrator, memory owner

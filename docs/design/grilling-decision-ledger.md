@@ -20,6 +20,9 @@ decision unless new evidence creates a real contradiction.
   They never own a Voice Conversation and never speak directly.
 - Exactly one temporary Realtime Provider session and one Audio Owner may be
   active at a time. Provider or device handoff preserves the Voice Conversation.
+- The Realtime Voice Gateway is an additional path inside Hermes. It does not
+  replace the general Hermes gateway, and Legacy Hermes Voice remains available
+  as a separate turn-based feature.
 
 ### Memory, conversation, and work
 

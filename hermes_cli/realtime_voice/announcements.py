@@ -39,6 +39,20 @@ def _event_result(event: WorkEvent) -> str:
 
 
 def format_work_announcement(event: WorkEvent) -> str:
+    if event.kind == "approval_requested":
+        payload = event.payload or {}
+        return "\n".join(
+            [
+                "<hermes_permission_request>",
+                "Hermes needs the user's permission before continuing accepted Work.",
+                f"authorization_id: {_text(payload.get('authorization_id'))}",
+                f"request: {_text(payload.get('description')) or _text(payload.get('command'))}",
+                f"choices: {', '.join(payload.get('choices') or ['once', 'deny'])}",
+                "Ask the user clearly. After they answer, call respond_to_work_permission with the authorization_id.",
+                "Do not read the authorization_id aloud.",
+                "</hermes_permission_request>",
+            ]
+        )
     return "\n".join(
         [
             "<hermes_work_event>",
@@ -89,4 +103,3 @@ class AnnouncementDelivery:
                 self._delivered.add(event.event_id)
         finally:
             self._in_flight.discard(event.event_id)
-

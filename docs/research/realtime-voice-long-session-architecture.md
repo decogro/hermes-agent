@@ -12,7 +12,9 @@ Hermes Gateway should be the sole authority for the application lifecycle:
 - one primary Hermes Coordinator Session is attached to that Voice Conversation;
 - one ephemeral native speech-to-speech connection is active at a time, with a
   replacement connection created after disconnect or provider expiry;
-- provider adapters expose media transport and normalized provider events only.
+- one disposable LiveKit `AgentSession` owns the active media/model mechanics;
+- LiveKit `RealtimeModel` plugins expose normalized provider behavior, with a
+  small Hermes capability layer for differences that affect recovery or tools.
 
 Provider resumption, provider history, and provider compression are useful
 adapter optimizations. They are not the source of truth. This gives the user
@@ -107,20 +109,21 @@ waits for a result.
 
 ## Media and session ownership
 
-Gateway authority does not require every audio packet to take an unnecessary
-server hop. The recommended topology separates the control plane from the media
-plane:
+The selected topology uses one media path for desktop and mobile. Clients join
+an authenticated LiveKit room, while the Hermes Realtime Voice Gateway hosts
+the disposable `AgentSession` and all durable meaning remains in Hermes:
 
 ```text
 Desktop or phone
-   |                         |
-   | control + events        | provider-native media when supported
-   v                         v
-Hermes Gateway ----------> Realtime S2S Provider
-   |                         ^
-   | relayed media only      |
-   | when required ----------+
    |
+   | LiveKit WebRTC audio + authenticated data
+   v
+LiveKit room
+   |
+   v
+Hermes Realtime Voice Gateway
+   |
+   +-- disposable LiveKit AgentSession --> Realtime S2S Provider
    +-- durable Voice Conversation
    +-- authoritative transcript + compaction
    +-- provider lifecycle + recovery
@@ -131,11 +134,8 @@ Hermes Gateway ----------> Realtime S2S Provider
 The provider owns native S2S inference, VAD, interruption behavior, and audio
 generation. The Gateway creates and authorizes the provider session, owns its
 control channel and lifecycle, commits transcripts, projects context, executes
-tools, and delivers announcements. An adapter should declare either
-`direct_webrtc` or `gateway_relay` media mode. Direct WebRTC is preferred when a
-provider exposes a secure sideband control path; gateway relay is used for
-server-WebSocket providers such as Qwen. In both cases Hermes remains the sole
-authority.
+tools, and delivers announcements. LiveKit moves audio and temporary session
+events but does not own conversation identity, Work, memory, or recovery.
 
 ## Infrastructure patterns worth copying
 
@@ -157,16 +157,15 @@ store. ([context management](https://docs.pipecat.ai/pipecat/learn/context-manag
 1. Copy the GPT-Live control-plane architecture: keep the media path dedicated,
    keep persistence and application logic off that path, and delegate deeper
    work to the already-warm primary Hermes Coordinator Session asynchronously.
-2. Implement a provider-neutral Hermes S2S adapter contract with explicit
-   capability flags: interruption, server push, history seeding, provider
-   resumption, provider compression, asynchronous tool receipt, sideband
-   control, and `direct_webrtc` versus `gateway_relay` media transport.
+2. Use LiveKit's `RealtimeModel` seam and add only Hermes-relevant capability
+   flags: interruption, server push, history seeding, provider resumption,
+   provider compression, asynchronous tool receipt, and transcript quality.
 3. Make Hermes transcript and compaction the authority. Treat Gemini handles,
    xAI conversation IDs, Qwen history, Nova replay, and Hume chat groups as
    disposable provider metadata.
-4. Use a Qwen-style realtime/backend split and announcement queue, a Nova-style
-   fast asynchronous work receipt, and Gemini-style explicit reconnect and
-   compression capability detection.
+4. Preserve the realtime/backend split and announcement queue, a fast
+   asynchronous Work receipt, and explicit reconnect and compression capability
+   detection.
 5. Require `server_push_announcement` or an equivalent provider adapter path for
    a provider to claim immediate background completion announcements. Otherwise
    queue the result until the next user turn or reconnect.
@@ -180,10 +179,10 @@ store. ([context management](https://docs.pipecat.ai/pipecat/learn/context-manag
 
 ## Provider benchmark gate
 
-Do not choose the permanent S2S model from feature tables alone. Implement Qwen
-as the first adapter because it is already available and its reference gateway
-matches the target shape, then run the same acceptance harness against Qwen,
-Gemini Live, xAI Voice, and OpenAI Realtime. A provider passes only if it can:
+Do not choose the permanent S2S model from feature tables alone. Build the
+LiveKit-to-Hermes seam first, use one supported provider only as an integration
+fixture, then run the same acceptance harness against the strongest supported
+native S2S candidates. A provider passes only if it can:
 
 1. begin a direct spoken reply within the target latency;
 2. stop audible playback within the barge-in target;

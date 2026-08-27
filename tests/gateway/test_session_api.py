@@ -41,6 +41,7 @@ def auth_adapter(session_db):
 def _create_session_app(adapter: APIServerAdapter) -> web.Application:
     app = web.Application()
     app.router.add_get("/v1/capabilities", adapter._handle_capabilities)
+    app.router.add_post("/api/realtime-voice/token", adapter._handle_realtime_voice_token)
     app.router.add_get("/api/sessions", adapter._handle_list_sessions)
     app.router.add_post("/api/sessions", adapter._handle_create_session)
     app.router.add_get("/api/sessions/{session_id}", adapter._handle_get_session)
@@ -80,6 +81,56 @@ async def test_capabilities_advertises_session_control_surface(adapter):
         "method": "POST",
         "path": "/v1/runs/{run_id}/steer",
     }
+
+
+@pytest.mark.asyncio
+async def test_capabilities_advertises_configured_realtime_voice(adapter, monkeypatch):
+    monkeypatch.setenv("LIVEKIT_URL", "wss://voice.example.test")
+    monkeypatch.setenv("LIVEKIT_API_KEY", "livekit-key")
+    monkeypatch.setenv("LIVEKIT_API_SECRET", "livekit-secret-that-is-long-enough")
+    monkeypatch.setenv("HERMES_VOICE_CONVERSATION_ID", "voice-conversation")
+
+    app = _create_session_app(adapter)
+    async with TestClient(TestServer(app)) as cli:
+        resp = await cli.get("/v1/capabilities")
+        assert resp.status == 200
+        data = await resp.json()
+
+    assert data["features"]["realtime_voice"] is True
+    assert data["features"]["realtime_voice_transport"] == "livekit-webrtc"
+    assert data["endpoints"]["realtime_voice_token"] == {
+        "method": "POST",
+        "path": "/api/realtime-voice/token",
+    }
+
+
+@pytest.mark.asyncio
+async def test_realtime_voice_token_is_authenticated_and_server_scoped(auth_adapter, monkeypatch):
+    monkeypatch.setenv("LIVEKIT_URL", "wss://voice.example.test")
+    monkeypatch.setenv("LIVEKIT_API_KEY", "livekit-key")
+    monkeypatch.setenv("LIVEKIT_API_SECRET", "livekit-secret-that-is-long-enough")
+    monkeypatch.setenv("HERMES_REALTIME_ROOM", "one-hermes-room")
+    monkeypatch.setenv("HERMES_VOICE_CONVERSATION_ID", "voice-conversation")
+
+    app = _create_session_app(auth_adapter)
+    async with TestClient(TestServer(app)) as cli:
+        unauthorized = await cli.post("/api/realtime-voice/token")
+        assert unauthorized.status == 401
+
+        response = await cli.post(
+            "/api/realtime-voice/token",
+            headers={"Authorization": "Bearer sk-test"},
+            json={"room": "attacker-room", "conversation_id": "attacker-session"},
+        )
+        assert response.status == 200
+        payload = await response.json()
+
+    assert payload["transport"] == "livekit-webrtc"
+    assert payload["url"] == "wss://voice.example.test"
+    assert payload["room"] == "one-hermes-room"
+    assert payload["conversation_id"] == "voice-conversation"
+    assert payload["participant_identity"].startswith("hermes-desktop-")
+    assert payload["token"]
 
 
 @pytest.mark.asyncio

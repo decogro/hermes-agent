@@ -34,6 +34,49 @@ def test_first_slice_exposes_only_five_provider_neutral_tools():
     ]
 
 
+def test_memory_tool_is_read_only():
+    memory = FRONTSTAGE_TOOLS[0]["function"]
+
+    assert memory["parameters"] == {
+        "type": "object",
+        "properties": {
+            "document": {"type": "string", "enum": ["all", "user", "memory"]}
+        },
+        "additionalProperties": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_memory_call_is_forced_to_read_only():
+    port = make_port()
+    router = FrontstageToolRouter(port)
+
+    result = await router.execute(
+        {"name": "memory", "arguments": {"document": "user"}},
+        CONTEXT,
+    )
+
+    assert result == {"action": "read", "content": "memory"}
+    port.memory.assert_awaited_once_with(
+        {"action": "read", "document": "user"},
+        CONTEXT,
+    )
+
+
+@pytest.mark.asyncio
+async def test_memory_write_alias_is_rejected():
+    port = make_port()
+    router = FrontstageToolRouter(port)
+
+    with pytest.raises(ValueError, match="memory is read-only"):
+        await router.execute(
+            {"name": "memory", "arguments": {"action": "append", "content": "x"}},
+            CONTEXT,
+        )
+
+    port.memory.assert_not_awaited()
+
+
 @pytest.mark.asyncio
 async def test_spawn_work_routes_to_hermes_without_using_speech_as_coordinator():
     port = make_port()

@@ -2224,6 +2224,7 @@ class APIServerAdapter(BasePlatformAdapter):
             ("GET", "/v1/models", self._handle_models),
             ("GET", "/api/model/options", self._handle_model_options),
             ("GET", "/v1/capabilities", self._handle_capabilities),
+            ("POST", "/api/realtime-voice/token", self._handle_realtime_voice_token),
             # Authenticated browser-control surface: POST registration
             # mints a short-lived ticket; the controller then opens the WS with
             # that ticket. Both are gated on browser.extension_control.enabled
@@ -3321,6 +3322,8 @@ class APIServerAdapter(BasePlatformAdapter):
         if auth_err:
             return auth_err
 
+        realtime_voice_enabled = self._realtime_voice_enabled()
+
         return web.json_response({
             "object": "hermes.api_server.capabilities",
             "platform": "hermes-agent",
@@ -3363,7 +3366,10 @@ class APIServerAdapter(BasePlatformAdapter):
                 "memory_write_api": False,
                 "skills_api": True,
                 "audio_api": False,
-                "realtime_voice": False,
+                "realtime_voice": realtime_voice_enabled,
+                "realtime_voice_transport": (
+                    "livekit-webrtc" if realtime_voice_enabled else None
+                ),
                 "session_continuity_header": "X-Hermes-Session-Id",
                 "session_key_header": "X-Hermes-Session-Key",
                 "cors": bool(self._cors_origins),
@@ -3399,6 +3405,10 @@ class APIServerAdapter(BasePlatformAdapter):
                 "health_detailed": {"method": "GET", "path": "/health/detailed"},
                 "models": {"method": "GET", "path": "/v1/models"},
                 "model_options": {"method": "GET", "path": "/api/model/options"},
+                "realtime_voice_token": {
+                    "method": "POST",
+                    "path": "/api/realtime-voice/token",
+                },
                 "chat_completions": {"method": "POST", "path": "/v1/chat/completions"},
                 "responses": {"method": "POST", "path": "/v1/responses"},
                 "runs": {"method": "POST", "path": "/v1/runs"},
@@ -3428,6 +3438,66 @@ class APIServerAdapter(BasePlatformAdapter):
                 },
             },
         })
+
+    def _realtime_voice_settings(self):
+        """Return request-profile-scoped settings for native realtime voice."""
+        from hermes_cli.realtime_voice.access import RealtimeVoiceAccessSettings
+
+        return RealtimeVoiceAccessSettings.load(_get_scoped_secret)
+
+    def _realtime_voice_enabled(self) -> bool:
+        return self._realtime_voice_settings().enabled
+
+    async def _handle_realtime_voice_token(self, request: "web.Request") -> "web.Response":
+        """Mint a short-lived LiveKit room token for the Hermes voice frontend.
+
+        The caller authenticates with the existing Hermes API key. Hermes owns
+        the room and durable Voice Conversation selection; the request body is
+        deliberately ignored so a frontend cannot redirect voice authority.
+        """
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+
+        settings = self._realtime_voice_settings()
+        if not self._realtime_voice_enabled():
+            return web.json_response(
+                _openai_error(
+                    "Native realtime voice is not configured on this Hermes gateway.",
+                    code="realtime_voice_not_configured",
+                ),
+                status=404,
+            )
+
+        from hermes_cli.realtime_voice.access import (
+            RealtimeVoiceNotConfigured,
+            RealtimeVoiceRuntimeMissing,
+            mint_realtime_voice_connection,
+        )
+
+        try:
+            payload = mint_realtime_voice_connection(
+                settings,
+                profile=_api_request_profile.get() or "default",
+            )
+        except RealtimeVoiceNotConfigured:
+            return web.json_response(
+                _openai_error(
+                    "Native realtime voice is not configured on this Hermes gateway.",
+                    code="realtime_voice_not_configured",
+                ),
+                status=404,
+            )
+        except RealtimeVoiceRuntimeMissing:
+            return web.json_response(
+                _openai_error(
+                    "The Hermes realtime voice runtime is not installed.",
+                    code="realtime_voice_runtime_missing",
+                ),
+                status=503,
+            )
+
+        return web.json_response(payload)
 
     # ------------------------------------------------------------------
     # Browser-extension control (authenticated local/VPS API)

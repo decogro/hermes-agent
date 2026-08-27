@@ -49,19 +49,11 @@ FRONTSTAGE_TOOLS = [
         "type": "function",
         "function": {
             "name": "memory",
-            "description": (
-                "Read or update durable Hermes user context. Never store passwords, "
-                "API keys, access tokens, or verification codes."
-            ),
+            "description": "Read durable Hermes user context. This tool is read-only.",
             "parameters": _object_schema(
                 {
-                    "action": {"type": "string", "enum": ["read", "append", "replace"]},
                     "document": {"type": "string", "enum": ["all", "user", "memory"]},
-                    "old_text": {"type": "string"},
-                    "new_text": {"type": "string"},
-                    "content": {"type": "string"},
-                },
-                ["action"],
+                }
             ),
         },
     },
@@ -172,13 +164,12 @@ class FrontstageToolRouter:
             context = replace(context, tool_call_id=call_id)
 
         if name == "memory":
-            request = {
-                "action": _required_string(args.get("action"), "action"),
-                **({"document": value} if (value := _optional_string(args.get("document"))) else {}),
-                **({"content": value} if (value := _optional_string(args.get("content"))) else {}),
-                **({"old_text": args["old_text"]} if isinstance(args.get("old_text"), str) else {}),
-                **({"new_text": args["new_text"]} if isinstance(args.get("new_text"), str) else {}),
-            }
+            action = _optional_string(args.get("action"))
+            if action and action != "read":
+                raise ValueError("Realtime frontstage memory is read-only")
+            request = {"action": "read"}
+            if document := _optional_string(args.get("document")):
+                request["document"] = document
             return await self._hermes.memory(request, context)
 
         if name == "spawn_work":

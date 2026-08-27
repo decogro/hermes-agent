@@ -23,6 +23,10 @@ decision unless new evidence creates a real contradiction.
 - The Realtime Voice Gateway is an additional path inside Hermes. It does not
   replace the general Hermes gateway, and Legacy Hermes Voice remains available
   as a separate turn-based feature.
+- LiveKit Agents implements the temporary Voice Session, and LiveKit WebRTC is
+  the shared desktop/mobile media transport. LiveKit is not a durable owner.
+- LiveKit Workflows, task groups, agent handoffs, and memory are outside this
+  module because Hermes already owns those semantics.
 
 ### Memory, conversation, and work
 
@@ -58,6 +62,8 @@ decision unless new evidence creates a real contradiction.
 - Native provider failure is explicit. The system never silently falls back to
   Legacy Hermes Voice.
 - Raw microphone and generated audio are not retained by default.
+- The permanent native S2S model remains undecided until providers pass the
+  common acceptance harness. An initial test provider is not a product lock-in.
 
 ### Scope and acceptance
 
@@ -75,8 +81,7 @@ These require code or provider investigation rather than more user grilling:
 
 - the exact Hermes module seams for transcript, Kanban, Coordinator events,
   authentication, and client transport;
-- the normalized provider adapter contract;
-- direct WebRTC versus Gateway-relayed media by provider;
+- the Hermes capability layer over LiveKit's `RealtimeModel` seam;
 - transcript event reconciliation and playback acknowledgement mechanics;
 - provider rehydration and context-compaction algorithms;
 - crash recovery, idempotency, and Announcement deduplication; and

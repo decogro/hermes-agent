@@ -526,6 +526,10 @@ from hermes_cli.memory_oauth import router as _memory_oauth_router  # noqa: E402
 
 app.include_router(_memory_oauth_router)
 
+from hermes_cli.web_routers import realtime_voice as _realtime_voice_routes  # noqa: E402
+
+app.include_router(_realtime_voice_routes.router)
+
 # ---------------------------------------------------------------------------
 # Session token for protecting sensitive endpoints (reveal).
 # The desktop shell mints the token and injects it via

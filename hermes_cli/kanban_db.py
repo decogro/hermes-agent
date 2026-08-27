@@ -4321,6 +4321,24 @@ def _append_event(
     )
 
 
+def append_task_event(
+    conn: sqlite3.Connection,
+    task_id: str,
+    kind: str,
+    payload: Optional[dict] = None,
+) -> bool:
+    """Append an auditable task event without changing task lifecycle state."""
+    with write_txn(conn):
+        exists = conn.execute(
+            "SELECT 1 FROM tasks WHERE id = ?",
+            (task_id,),
+        ).fetchone()
+        if exists is None:
+            return False
+        _append_event(conn, task_id, kind, payload)
+    return True
+
+
 def _end_run(
     conn: sqlite3.Connection,
     task_id: str,

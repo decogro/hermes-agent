@@ -22,6 +22,7 @@ export { ACTIVE_ICON_BTN, GHOST_ICON_BTN, ICON_BTN, PRIMARY_ICON_BTN } from './c
 
 interface ConversationProps {
   active: boolean
+  canStopTurn?: boolean
   level: number
   muted: boolean
   status: ConversationStatus
@@ -212,6 +213,7 @@ function HudWindowButtons() {
 }
 
 function ConversationPill({
+  canStopTurn = true,
   disabled,
   level,
   muted,
@@ -258,7 +260,7 @@ function ConversationPill({
           <Codicon name={muted ? 'mic-off' : 'mic'} size="1rem" />
         </Button>
       </Tip>
-      {listening && (
+      {listening && canStopTurn && (
         <Button
           aria-label={c.stopListening}
           className="h-(--composer-control-size) shrink-0 gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"

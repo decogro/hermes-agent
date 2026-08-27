@@ -199,6 +199,9 @@ voice = [
   "sounddevice==0.5.5",
   "numpy==2.4.3",
 ]
+# Native speech-to-speech frontstage. Provider plugins stay separate so choosing
+# a model does not pull every provider SDK into Hermes.
+realtime-voice = ["livekit-agents==1.6.10"]
 # "Hey Hermes" wake word — on-device hotword detection. All engines are
 # optional; openWakeWord (ONNX) is the free default, sherpa-onnx adds
 # open-vocabulary phrases (any typed phrase, zero training), Porcupine is
@@ -373,6 +376,7 @@ build-backend = "setuptools.build_meta"
 hermes = "hermes_cli.main:main"
 hermes-agent = "run_agent:main"
 hermes-acp = "acp_adapter.entry:main"
+hermes-realtime-voice = "hermes_cli.realtime_voice.worker:main"
 
 [tool.uv]
 override-dependencies = [
